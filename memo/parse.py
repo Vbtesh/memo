@@ -283,6 +283,17 @@ def parse_expr(expr: ast.expr, ctxt: ParsingContext) -> Expr:
             )
         ):
             return EKL(Name(p_who), Id(p_id), Name(q_who), Id(q_id), loc=loc, static=False)
+        
+        # Jensen-Shannon Divergence
+        case ast.Subscript(
+            value=ast.Name(id='JS'),
+            slice=ast.BinOp(
+                left=ast.Attribute(value=ast.Name(id=p_who), attr=p_id),
+                op=ast.BitOr(),
+                right=ast.Attribute(value=ast.Name(id=q_who), attr=q_id)
+            )
+        ):
+            return EJS(Name(p_who), Id(p_id), Name(q_who), Id(q_id), loc=loc, static=False)
 
         # imagine
         case ast.Subscript(value=ast.Name("imagine"), slice=ast.Tuple(elts=elts)):
