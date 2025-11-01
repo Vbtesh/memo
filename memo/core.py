@@ -193,6 +193,10 @@ class EJS(ExprSyntaxNode):
     q_id: Id
 
 @dataclass(frozen=True)
+class EGJS(ExprSyntaxNode):
+    rvs: list[tuple[Name, Id]]
+
+@dataclass(frozen=True)
 class EWith(ExprSyntaxNode):
     who: Name
     expr: Expr
@@ -236,6 +240,7 @@ Expr = (
     | EEntropy
     | EKL
     | EJS
+    | EGJS
     | EWith
     | EImagine
     | ECost
@@ -792,6 +797,54 @@ def _(e: EEntropy, ctxt: Context) -> Value:
     ctxt.emit(
         f"{out} = -marg({marginal} * jnp.nan_to_num(jnp.log({marginal})), {idxs_b})"
     )
+    return Value(
+        tag=out,
+        known=True,
+        deps=deps
+    )
+
+@eval_expr.register
+def _(e: EGJS, ctxt: Context) -> Value:
+    rvs = e.rvs
+    for rv in rvs:
+        if ctxt.frame.choices[rv].known:
+            raise MemoError(
+                "Taking Generalized Jensen-Shannon Divergence of known variable",
+                hint=f"{rv[0]}.{rv[1]} is already known to {ctxt.frame.name}, so its GJS divergence is zero.",
+                user=True,
+                ctxt=ctxt,
+                loc=e.loc
+            )
+    idxs_list = []
+    for rv in rvs:
+        idxs = tuple(set(
+            c.idx for n, c in ctxt.frame.choices.items()
+            if (not c.known) and (n != rv)
+        ))
+        idxs_list.append(idxs)
+
+    deps = {n for n, c in ctxt.frame.choices.items() if c.known}
+    ctxt.emit(f"# {ctxt.frame.name} Generalized Jensen-Shannon Divergence")
+
+    out = ctxt.sym("gjs")
+    marginals = []
+    for i, rv in enumerate(rvs):
+        marginal = ctxt.sym(f"marginal_{i}")
+        marginals.append(marginal)
+        ctxt.emit(f"{marginal} = jnp.swapaxes(marg({ctxt.frame.ll}, {idxs_list[i]}), {-1 - ctxt.frame.choices[rvs[0]].idx}, {-1 - ctxt.frame.choices[rv].idx})")
+    avg_marginal = ctxt.sym("avg_marginal")
+    ctxt.emit(f"{avg_marginal} = ({' + '.join(marginals)}) / {len(rvs)}")
+
+    ctxt.emit(
+        f"{out} = 0"
+    )
+    for marginal in marginals:
+        ctxt.emit(
+            f"{out} += marg({marginal} * jnp.nan_to_num(jnp.log({marginal}) - jnp.log({avg_marginal})), [{ctxt.frame.choices[rvs[0]].idx}])"
+        )
+    
+    ctxt.emit(f"{out} /= {len(rvs)}")
+    ctxt.emit(f"{out} = jnp.sqrt({out})")  # make it a metric
     return Value(
         tag=out,
         known=True,
