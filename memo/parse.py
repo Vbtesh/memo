@@ -266,6 +266,36 @@ def parse_expr(expr: ast.expr, ctxt: ParsingContext) -> Expr:
                         ctxt=None,
                         loc=loc,
                     )
+                
+        # Generalized Jensen-Shannon Divergence
+        case ast.Subscript(value=ast.Name(id='JS'), slice=rv_expr):
+            assert not isinstance(rv_expr, ast.Slice)
+            match rv_expr:
+                case ast.Attribute(value=ast.Name(id=who_), attr=choice):
+                    return EJS(rvs=[(Name(who_), Id(choice))], loc=loc, static=False)
+                case ast.Tuple(elts=elts):
+                    rvs = []
+                    for elt in elts:
+                        match elt:
+                            case ast.Attribute(value=ast.Name(id=who_), attr=choice):
+                                rvs.append((Name(who_), Id(choice)))
+                            case _:
+                                raise MemoError(
+                                    f"Unexpected variable in JS[...]",
+                                    hint=f"You can only calculate the Jensen-Shannon Divergence of other agents' choices, e.g. alice.x",
+                                    user=True,
+                                    ctxt=None,
+                                    loc=loc,
+                                )
+                    return EJS(rvs=rvs, loc=loc, static=False)
+                case _:
+                    raise MemoError(
+                        f"Unexpected variable in JS[...]",
+                        hint=f"You can only calculate the Jensen-Shannon Divergence of other agents' choices, e.g. alice.x",
+                        user=True,
+                        ctxt=None,
+                        loc=loc,
+                    )
 
         # variance
         case ast.Subscript(value=ast.Name(id="Var"), slice=rv_expr):
@@ -283,47 +313,6 @@ def parse_expr(expr: ast.expr, ctxt: ParsingContext) -> Expr:
             )
         ):
             return EKL(Name(p_who), Id(p_id), Name(q_who), Id(q_id), loc=loc, static=False)
-        
-        # Jensen-Shannon Divergence
-        case ast.Subscript(
-            value=ast.Name(id='JS'),
-            slice=ast.BinOp(
-                left=ast.Attribute(value=ast.Name(id=p_who), attr=p_id),
-                op=ast.BitOr(),
-                right=ast.Attribute(value=ast.Name(id=q_who), attr=q_id)
-            )
-        ):
-            return EJS(Name(p_who), Id(p_id), Name(q_who), Id(q_id), loc=loc, static=False)
-        
-        # Generalized Jensen-Shannon Divergence
-        case ast.Subscript(value=ast.Name(id='GJS'), slice=rv_expr):
-            assert not isinstance(rv_expr, ast.Slice)
-            match rv_expr:
-                case ast.Attribute(value=ast.Name(id=who_), attr=choice):
-                    return EGJS(rvs=[(Name(who_), Id(choice))], loc=loc, static=False)
-                case ast.Tuple(elts=elts):
-                    rvs = []
-                    for elt in elts:
-                        match elt:
-                            case ast.Attribute(value=ast.Name(id=who_), attr=choice):
-                                rvs.append((Name(who_), Id(choice)))
-                            case _:
-                                raise MemoError(
-                                    f"Unexpected variable in GJS[...]",
-                                    hint=f"You can only calculate the Jensen-Shannon Divergence of other agents' choices, e.g. alice.x",
-                                    user=True,
-                                    ctxt=None,
-                                    loc=loc,
-                                )
-                    return EGJS(rvs=rvs, loc=loc, static=False)
-                case _:
-                    raise MemoError(
-                        f"Unexpected variable in GJS[...]",
-                        hint=f"You can only calculate the Jensen-Shannon Divergence of other agents' choices, e.g. alice.x",
-                        user=True,
-                        ctxt=None,
-                        loc=loc,
-                    )
 
         # imagine
         case ast.Subscript(value=ast.Name("imagine"), slice=ast.Tuple(elts=elts)):
