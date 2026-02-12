@@ -1,8 +1,10 @@
 ![memo's logo](https://github.com/kach/memo/raw/main/assets/logo.png)
 
-memo is a probabilistic programming language for expressing computational cognitive models involving **recursive reasoning about reasoning**. memo inherits from the tradition of WebPPL-based Bayesian modeling (see [probmods](http://probmods.org/), [agentmodels](https://agentmodels.org/), and [problang](https://www.problang.org/)), but aims to make models **easier to write and run** by taking advantage of modern programming language techniques and hardware capabilities (including GPUs!). As a result, models are often significantly simpler to express (we've seen codebases shrink by a **factor of 3x or more**), and dramatically faster to execute and fit to data (we've seen **speedups of 3,000x or more**). In idiomatic memo, a POMDP solver is 15 lines of code, and is just as fast as a hand-optimized solver written in 200 lines of code.
+memo is a probabilistic programming language for expressing computational cognitive models involving **recursive reasoning about reasoning**. memo inherits from the tradition of Bayesian modeling with probabilistic programming languages (PPLs; see [probmods](http://probmods.org/), [agentmodels](https://agentmodels.org/), and [problang](https://www.problang.org/)), but memo aims to make models **easier to write and run** by taking advantage of modern programming language techniques and hardware capabilities (including GPUs!). memo models are often significantly simpler to express (we've seen codebases shrink by a **factor of 3x or more**), and dramatically faster to execute and fit to data (we've seen **speedups of 3,000x or more**). In idiomatic memo, a POMDP solver is 15 lines of memo code, and is just as fast as a hand-optimized solver written in 200 lines of ordinary code.
 
 memo stands for: mental modeling, memoized matrix operations, model-expressed-model-optimized, and metacognitive memos.
+
+**For updates on memo's development, we _strongly_ encourage you to subscribe to our low-traffic at-most-monthly announcements mailing list [here](https://lists.csail.mit.edu/mailman/listinfo/memo-lang).**
 
 ## Installing memo
 
@@ -14,25 +16,18 @@ memo stands for: mental modeling, memoized matrix operations, model-expressed-mo
 ## Learning memo
 
 There are many resources available for learning memo.
-1. The [Memonomicon](./demo/Memonomicon.ipynb) gives a brief tour of the language, and an example of how to build a model and fit it to data by parallel grid search and/or gradient descent.
-2. You can watch a [video tutorial](https://www.dropbox.com/scl/fi/c3jjup1lheowfppbz41zr/memo-live-tutorial.mp4?rlkey=ce7reeadff2nh2ktqh3tubbik&st=lai8yx1h&dl=0) that covers similar material. You can also check out a [talk given at LAFI '25](https://www.youtube.com/live/RLEFVgx2UWk?t=12500s) that offers a bigger-picture overview of memo.
-3. The [Handbook](./Handbook.pdf) is a complete reference for memo's syntactic constructs.
-4. This repository includes over a dozen classic examples of recursive reasoning models implemented in memo, which you can find in the [demo directory](./demo/).
-6. I am happy to give a short hands-on tutorial on memo in your lab. Just email me to ask!
+1. You can watch a [live tutorial given at COSMOS 2025](https://www.youtube.com/watch?v=6nZ60Luy7Ac). You can also check out a [talk given at LAFI 2025](https://www.youtube.com/live/RLEFVgx2UWk?t=12500s) that offers a bigger-picture overview of memo.
+2. The [Handbook](./Handbook.md) is a complete reference for memo's syntax.
+3. This repository includes over a dozen classic examples of recursive reasoning models implemented in memo, which you can find in the [demo directory](./demo/).
+4. I am happy to give a short hands-on tutorial on memo in your lab. Just email me to ask!
 
 You may also be looking for general resources on the theory behind memo modeling.
 1. For background on the theory of decision making under uncertainty, e.g. MDPs and POMDPs, we recommending consulting _Decision Making Under Uncertainty_ as a reference. You can read the entire book for free online [here](https://algorithmsbook.com/decisionmaking/).
 2. For background on Bayesian models of theory of mind, we recommend consulting chapter 14 of _Bayesian Models of Cognition_ as a reference. You can read the published version [here](https://mitpress.ublish.com/ebook/bayesian-models-of-cognition-reverse-engineering-the-mind-preview/12799/341) and a PDF preprint [here](https://www.tomerullman.org/papers/BBB_chapter14.pdf).
 3. Dae Houlihan (Dartmouth University) taught a winter '25 [course](https://comosoco.daeh.info) on computational models of social cognition using memo.
-4. Robert Hawkins (Stanford University) is teaching a summer '25 seminar on pragmatics using memo. Here is the work-in-progress [textbook](https://hawkrobe.github.io/probLang-memo/), a version of problang that has been adapted to use memo.
+4. Robert Hawkins (Stanford University) is teaching a summer '25 seminar on pragmatics using memo. Here is the work-in-progress [textbook](https://social-interaction-lab.org/problang-v2/), a version of problang that has been adapted to use memo.
 
-## The memo community
-
-Here are some ways to engage with the memo community.
-
-1. For updates on memo's development, we _strongly_ encourage you to subscribe to our low-traffic monthly announcements mailing list [here](https://lists.csail.mit.edu/mailman/listinfo/memo-lang).
-2. To ask questions about memo, and to get help from other memo users, use [Github Discussions](https://github.com/kach/memo/discussions). Note that you will need a Github account to participate.
-3. For live support, we host memOH (**memo office hours**) every Tuesday at 2pm ET. Email Kartik for the zoom link!
+Finally, to ask questions about memo, and to get help from other memo users, we encourage you to use [Github Discussions](https://github.com/kach/memo/discussions). Note that you will need a Github account to participate.
 
 ## The memo on memo
 
@@ -68,13 +63,14 @@ I would love to hear about any research using memo. Please don't hesitate to sha
 ## As seen on…
 
 **Papers/projects using memo**  
-- People use theory of mind to craft lies exploiting audience desires (Sterling, Berke, Chandra, & Jara-Ettinger, CogSci '25, SPP '25)
-- Solving strategic social coordination via Bayesian learning (Lamba, Houlihan, & Saxe, CogSci '25)
+- People use theory of mind to craft lies exploiting audience desires (Sterling, Berke, Chandra & Jara-Ettinger, CogSci '25, SPP '25)
+- Solving strategic social coordination via Bayesian learning (Lamba, Houlihan & Saxe, CogSci '25)
 - Empathy in Explanation (Collins, Chandra, Weller, Ragan-Kelley, & Tenenbaum, CogSci '25, SPP '25)
-- Minding the Politeness Gap in Cross-cultural Communication (Machino, Siegel, & Hawkins, CogSci '25)
-- Preparing a learner for an independent future (Sundar, Chandra, & Kleiman-Weiner, CogSci '25)
-- A Computational Theory of Dignity (Chandra, Tenenbaum, & Saxe, SPP '25)
+- Minding the Politeness Gap in Cross-cultural Communication (Machino, Siegel & Hawkins, CogSci '25)
+- Preparing a learner for an independent future (Sundar, Chandra & Kleiman-Weiner, CogSci '25)
+- A Computational Theory of Dignity (Chandra, Tenenbaum & Saxe, SPP '25)
 - Theories of Mind as Languages of Thought for Thought about Thought (Chandra, Ragan-Kelley & Tenenbaum, CogSci '25)
+- Signaling social identity in referential communication (Chen, Hawkins & Saxe, CogSci '25)
 
 _(Email me to have your work listed here!)_
 
@@ -126,7 +122,7 @@ One way to think about memo is that it simulates _all_ possible traces at the sa
 
 <details><summary>Is memo a research prototype, or a mature software product? Should I invest in learning memo?</summary>
 
-While memo originated as a research project, it is now stable software that is being used by many labs around the world, and has led to several published papers. memo will be supported for a long time to come, and you should feel confident in using memo for your own projects.
+memo is stable software that is being used by many labs around the world, and has led to several published papers. memo will be supported for a long time to come, and you should feel confident in using memo for your own projects.
 </details>
 
 ---
@@ -162,8 +158,32 @@ Yes! However, JAX on Metal is not very well-supported by Apple, so we cannot gua
 ---
 
 <details><summary>VS Code underlines all my memo code in red. It's a bloodbath out there!</summary>
+This is because your editor is trying to interpret your memo code as regular python
+code while checking it for problems. To disable this behavior, you can annotate your 
+memo models with `@no_type_check` and (if you are using `ruff`) `# ruff: noqa`.
+For example, if you have memo code that looks like:
 
-If you write `# type: ignore` at the top of your file (even before the imports), then VS Code will suppress the red lines. If you use Ruff, additionally add `# ruff: noqa`.
+```python
+@memo
+def model[u: U, r: R]():
+   # ...
+```
+
+You can disable the checks by adding the following to the top of your file:
+
+```python
+from typing import no_type_check
+```
+
+Then, annotate your model function like so:
+
+```python
+# ruff: noqa
+@no_type_check
+@memo
+def model[u: U, r: R]():
+   # ...
+```
 </details>
 
 <details><summary>Sometimes my model returns 0 in unexpected places, often at the edges/extreme values of distributions.</summary>
@@ -212,4 +232,16 @@ Use `@memo(save_comic="filename")` instead of just `@memo`. memo will produce a 
 
 <details><summary>How can I get model outputs in pandas/xarray format?</summary>
 Pass in the <code>return_pandas=True</code> or <code>return_xarray=True</code> keyword arguments to your model. Your model will then return a tuple: the first argument will be the raw array, and the second argument will have a <code>.pandas</code> or <code>.xarray</code> property, respectively.
+</details>
+
+<details><summary>How can I sample from common distributions, e.g. normal or Beta?</summary>
+You can import and call the pdfs and pmfs defined in <code>jax.scipy.stats</code> (see https://docs.jax.dev/en/latest/jax.scipy.html). For example, to choose from a Bernoulli distribution with p=0.9, you can write:
+
+```python
+from jax.scipy.stats.bernoulli import pmf as ber_pmf
+
+...
+
+alice: chooses(x in Bool, wpp=ber_pmf(x, 0.9))
+```
 </details>

@@ -1,4 +1,6 @@
 from memo import memo, memo_test, make_module
+import jax.numpy as np
+X = np.arange(3)
 
 mod = make_module('test_suite')
 mod.install('''
@@ -11,6 +13,10 @@ N = 5
 @jax.jit
 def f(n):
     return n + 1
+
+@jax.jit
+def g(n):
+    return n.sum()
 
 Z = np.arange(1000)
 R = np.linspace(-10, 10, 1000)
@@ -80,6 +86,34 @@ def inline_memo[x: X]():
 def memo_call_ellipsis(t=0):
     alice: chooses(x in X, wpp=test_[x](...))
     return E[alice.x]
+
+@memo(install_module=mod.install)
+def recursive_kwarg[x: X](a, b=0):
+    return recursive_kwarg[x](a=a-1, b=b+1) if a > 0 else b
+
+@memo_test(mod, item=3.0)
+def kwarg():
+    alice: chooses(x in X, wpp=1)
+    return E[recursive_kwarg[alice.x](a=3)]
+
+@memo_test(mod, item=13.0)
+def kwarg_mixed():
+    alice: chooses(x in X, wpp=1)
+    return E[recursive_kwarg[alice.x](3, b=10)]
+
+@memo_test(mod, expect='ce')
+def kwargs_unpacking_err():
+    alice: chooses(x in X, wpp=test_[alice.x](**{1: 2}))
+    return 1
+
+@memo_test(mod)
+def cost_kwarg():
+    alice: chooses(x in X, wpp=1)
+    return cost @ recursive_kwarg(a=2)
+
+@memo_test(mod, expect='ce')
+def cost_kwargs_unpacking_err():
+    return cost @ recursive_kwarg(**{})
 
 @memo_test(mod)
 def imagine_ok():
@@ -193,6 +227,16 @@ def ffi_scalar0():
 @memo_test(mod, expect='ce')
 def ffi_scalar1():
     return returns_nonscalar1(1.0)
+
+mod.install('''
+@jax.jit
+def returns_nonscalar_kwarg(x, scale=1.0):
+    return np.array([0, 1]) * scale
+''')
+
+@memo_test(mod, expect='ce')
+def ffi_scalar_kwarg():
+    return returns_nonscalar_kwarg(1.0, scale=2.0)
 
 @memo_test(mod)
 def observes_const():
@@ -353,3 +397,130 @@ def jianlin[x: X]():
     a: observes [b.u] is x
     a: chooses(v in X, wpp=b.u == v)
     return Pr[a.v == x]
+
+mod.install('''
+@jax.jit
+def takes_nonstatic_arg(x, Z, y):
+    return Z[x] * y
+''')
+
+@memo_test(mod)
+def ffi_static():
+    alice: chooses(x in X, wpp=takes_nonstatic_arg(x, {np.array([0, 1, 2, 3, 4])}, 3.0))
+    return E[alice.x]
+
+mod.install('''
+from jax.scipy.stats.norm import pdf as norm_pdf
+N = np.arange(11)
+norm_pdf_kwargs = dict(scale=1, loc=5)
+
+@jax.jit
+def kw_only_func(a, b):
+    return a + b
+''')
+
+@memo_test(mod, item=5.0)
+def ffi_kwargs():
+    agent: chooses(n in N, wpp=norm_pdf(n, scale=1, loc=5))
+    return E[agent.n]
+
+@memo_test(mod, expect='ce')
+def ffi_kwargs_expansion():
+    agent: chooses(n in N, wpp=norm_pdf(n, **norm_pdf_kwargs))
+    return E[agent.n]
+
+@memo_test(mod, item=2.0)
+def ffi_kwargs_only():
+    alice: chooses(x in X, wpp=1)
+    return E[kw_only_func(a=alice.x, b=1.0)]
+
+@memo_test(mod, expect='ce')
+def param_name_conflict(x):
+    alice: chooses(x in X, wpp=1)
+    return 1.0
+
+@memo_test(mod, expect='ce')
+def exotic_param_1(x: ... = X):
+    return x
+
+@memo_test(mod, expect='ce')
+def exotic_param_2(x: ... = X):
+    return f(x)
+
+@memo_test(mod, expect='ce')
+def exotic_param_3(x: ... = "not_an_array"):
+    return f(x)
+
+@memo_test(mod, expect='ce')
+def exotic_param_4(x = X):
+    return x
+
+@memo_test(mod)
+def exotic_param_5(x: ... = X):
+    return g(x) + array_index(x, 0)
+
+mod.install('''
+@jax.jit
+def exotic_kwarg_func(x, arr, scale=1.0):
+    return arr[x] * scale
+
+@jax.jit
+def exotic_both_func(x, arr, weights):
+    return arr[x] * weights[x]
+''')
+
+@memo_test(mod, item=1.0)
+def exotic_param_kwarg_item(arr: ... = np.ones_like(X)):
+    alice: chooses(x in X, wpp=exotic_kwarg_func(x, arr=arr, scale=2.0))
+    return E[alice.x]
+
+@memo_test(mod, item=1.0)
+def exotic_param_arg_with_kwarg_item(arr: ... = np.ones_like(X)):
+    alice: chooses(x in X, wpp=exotic_kwarg_func(x, arr, scale=2.0))
+    return E[alice.x]
+
+@memo_test(mod, item=1.0)
+def exotic_param_both_item(arr: ... = np.ones_like(X), weights: ... = np.ones_like(X)):
+    alice: chooses(x in X, wpp=exotic_both_func(x, arr, weights=weights))
+    return E[alice.x]
+
+@memo(install_module=mod.install)
+def exotic_kwarg_recursive[x: X](k, arr: ...):
+    alice: chooses(x in X, wpp=exotic_kwarg_func(x, arr, scale=1.0))
+    return exotic_kwarg_recursive[x](k=k-1, arr=arr) if k > 0 else 1
+
+@memo_test(mod, item=1.0)
+def exotic_kwarg(arr: ... = np.ones_like(X)):
+    alice: chooses(x in X, wpp=1)
+    return E[exotic_kwarg_recursive[alice.x](k=2, arr=arr)]
+
+@memo(install_module=mod.install)
+def exotic_with_regular_recursive[x: X](k, arr: ..., scale):
+    alice: chooses(x in X, wpp=exotic_kwarg_func(x, arr, scale=scale))
+    return exotic_with_regular_recursive[x](k=k-1, arr=arr, scale=scale) if k > 0 else 1
+
+@memo_test(mod, item=1.0)
+def exotic_with_regular_kwarg(arr: ... = np.ones_like(X)):
+    alice: chooses(x in X, wpp=1)
+    return E[exotic_with_regular_recursive[alice.x](k=2, arr=arr, scale=2.0)]
+
+@memo_test(mod)
+def multi_return_1[x: X]():
+    return 1
+    return 2
+
+@memo_test(mod)
+def multi_return_2[x: X]():
+    return multi_return_1[0][x]()
+
+@memo_test(mod, expect='re')
+def multi_return_3[x: X]():
+    return multi_return_1[x]()
+
+@memo_test(mod, expect='re')
+def multi_return_4[x: X]():
+    return multi_return_1[3][x]()
+
+@memo_test(mod, expect='re')
+def multi_return_5[x: X]():
+    return test_[0][x]()

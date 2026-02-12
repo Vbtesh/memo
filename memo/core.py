@@ -153,13 +153,16 @@ class EOp(ExprSyntaxNode):
 class EFFI(ExprSyntaxNode):
     name: str
     args: list[Expr]
+    kwargs: dict[str, Expr] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
 class EMemo(ExprSyntaxNode):
     name: str
+    which_retval: int | None
     args: list[Expr]
     ids: list[Tuple[Id, Name, Id]]
+    kwargs: dict[str, Expr] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -202,6 +205,7 @@ class EImagine(ExprSyntaxNode):
 class ECost(ExprSyntaxNode):
     name: str
     args: list[Expr]
+    kwargs: dict[str, Expr] = field(default_factory=dict)
 
 @dataclass(frozen=True)
 class EInline(ExprSyntaxNode):
@@ -346,9 +350,24 @@ class Buffer:
     def getvalue(self: Buffer) -> str:
         return self.io.getvalue()
 
+
+@dataclass
+class ParsingContext:
+    cast: None | list[str]
+    static_parameters: list[str]
+    exotic_parameters: set[str]
+    static_defaults: list[None | str]
+    axes: list[tuple[str, str]]
+    loc_name: str
+    loc_file: str
+    qualname: str
+    doc: str | None = None
+
+
 @dataclass
 class Context:
     frame: Frame
+    pctxt: ParsingContext
     continuation: list[Stmt] = field(default_factory=list)
 
     hoisted_buf: Buffer = field(default_factory=Buffer)
@@ -441,22 +460,37 @@ def _(e: EChoice, ctxt: Context) -> Value:
 
 @eval_expr.register
 def _(e: EFFI, ctxt: Context) -> Value:
-    name, args = e.name, e.args
+    name, args, kwargs = e.name, e.args, e.kwargs
     args_out = []
     for arg in args:
         args_out.append(eval_expr(arg, ctxt))
-    known = all(arg.known for arg in args_out)
-    deps = set().union(*(arg.deps for arg in args_out))
+    kwargs_out: dict[str, Value] = {}
+    for key, arg in kwargs.items():
+        kwargs_out[key] = eval_expr(arg, ctxt)
+    all_values = list(args_out) + list(kwargs_out.values())
+    known = all(val.known for val in all_values)
+    deps = set().union(*(val.deps for val in all_values))
     with ctxt.hoist(e.static):
         out = ctxt.sym(f"ffi_{name}")
-        ctxt.emit(f'{out} = ffi({name}, {", ".join(arg.tag for arg in args_out)})')
+        arg_statics = ", ".join([repr(arg.static) for arg in args])
+        arg_tags = ", ".join(arg.tag for arg in args_out)
+        kwarg_statics_dict = ", ".join(f"{repr(k)}: {kwargs[k].static}" for k in kwargs_out.keys())
+        kwarg_tags = ", ".join(f"{k}={v.tag}" for k, v in kwargs_out.items())
+        if arg_tags and kwarg_tags:
+            ctxt.emit(f'{out} = ffi({name}, [{arg_statics}], {{{kwarg_statics_dict}}}, {arg_tags}, {kwarg_tags})')
+        elif arg_tags:
+            ctxt.emit(f'{out} = ffi({name}, [{arg_statics}], {{}}, {arg_tags})')
+        elif kwarg_tags:
+            ctxt.emit(f'{out} = ffi({name}, [], {{{kwarg_statics_dict}}}, {kwarg_tags})')
+        else:
+            ctxt.emit(f'{out} = ffi({name}, [], {{}})')
         if e.static:
-            ctxt.emit(f'{out} = {out}.item()')
+            ctxt.emit(f'{out} = jnp.array({out}).item()')
     return Value(tag=out, known=known, deps=deps)
 
 @eval_expr.register
 def _(e: ECost, ctxt: Context) -> Value:
-    name, args = e.name, e.args
+    name, args, kwargs = e.name, e.args, e.kwargs
     args_out = []
     with ctxt.hoist():
         for arg in args:
@@ -469,10 +503,23 @@ def _(e: ECost, ctxt: Context) -> Value:
                     ctxt=ctxt,
                     loc=arg.loc,
                 )
+
+    kwargs_out: dict[str, Value] = {}
+    with ctxt.hoist():
+        for key, kwarg in kwargs.items():
+            kwargs_out[key] = eval_expr(kwarg, ctxt)
+            if not kwarg.static:
+                raise MemoError(
+                    f"keyword argument {key} not statically known",
+                    hint="""When calling a memo, you can only pass in parameters that are fixed ("static") values that memo can compute without reasoning about agents. Such values cannot depend on any agents' choices -- only on literal numeric values and other parameters. This constraint is what enables memo to help you fit/optimize parameters fast by gradient descent.""",
+                    user=True,
+                    ctxt=ctxt,
+                    loc=kwarg.loc,
+                )
         res = ctxt.sym(f"result_cost_{name}")
         ctxt.emit(f'if {" and ".join(ctxt.path_condition) if len(ctxt.path_condition) > 0 else "True"}:')
         ctxt.indent()
-        ctxt.emit(f'_, {res} = {name}({assemble_tags([arg.tag for arg in args_out], return_cost=True)})')
+        ctxt.emit(f'_, {res} = {name}({assemble_tags([arg.tag for arg in args_out], return_cost=True, **{k: v.tag for k, v in kwargs_out.items()})})')
         ctxt.emit(f'{res} = {res}.cost')
         ctxt.dedent()
         ctxt.emit('else:')
@@ -483,7 +530,7 @@ def _(e: ECost, ctxt: Context) -> Value:
 
 @eval_expr.register
 def _(e: EMemo, ctxt: Context) -> Value:
-    name, args, ids = e.name, e.args, e.ids
+    name, args, ids, which_retval, kwargs = e.name, e.args, e.ids, e.which_retval, e.kwargs
     args_out = []
     with ctxt.hoist():
         for arg in args:
@@ -495,6 +542,19 @@ def _(e: EMemo, ctxt: Context) -> Value:
                     user=True,
                     ctxt=ctxt,
                     loc=arg.loc,
+                )
+
+    kwargs_out: dict[str, Value] = {}
+    with ctxt.hoist():
+        for key, kwarg in kwargs.items():
+            kwargs_out[key] = eval_expr(kwarg, ctxt)
+            if not kwarg.static:
+                raise MemoError(
+                    f"keyword argument {key} not statically known",
+                    hint="""When calling a memo, you can only pass in parameters that are fixed ("static") values that memo can compute without reasoning about agents. Such values cannot depend on any agents' choices -- only on literal numeric values and other parameters. This constraint is what enables memo to help you fit/optimize parameters fast by gradient descent.""",
+                    user=True,
+                    ctxt=ctxt,
+                    loc=kwarg.loc,
                 )
 
     for _, source_name, source_id in ids:
@@ -510,10 +570,13 @@ def _(e: EMemo, ctxt: Context) -> Value:
     with ctxt.hoist():
         res = ctxt.sym(f"result_array_{name}")
         doms = [ctxt.frame.choices[source_name, source_id].domain for _, source_name, source_id in ids]
+        ctxt.emit(f"""check_which_retval({name}._num_retvals, {which_retval})""")
         ctxt.emit(f"""check_domains({name}._doms, {repr(tuple(str(d) for d in doms))})""")
         ctxt.emit(f'if {" and ".join(ctxt.path_condition) if len(ctxt.path_condition) > 0 else "True"}:')
         ctxt.indent()
-        ctxt.emit(f'{res}, res_aux = {name}({assemble_tags([arg.tag for arg in args_out], return_aux=True, return_cost='return_cost')})')
+        ctxt.emit(f'{res}, res_aux = {name}({assemble_tags([arg.tag for arg in args_out], return_aux=True, return_cost='return_cost', **{k: v.tag for k, v in kwargs_out.items()})})')
+        if which_retval is not None:
+            ctxt.emit(f'{res} = {res}[{which_retval}]')
         ctxt.emit(f"if return_cost: aux.cost += res_aux.cost")
         ctxt.dedent()
         ctxt.emit('else:')
@@ -1130,6 +1193,14 @@ def _(s: SChoose, ctxt: Context) -> None:
             raise MemoError(
                 "Repeated choice",
                 hint=f"{who} has already chosen {id} earlier in this model! Pick a new name?",
+                user=True,
+                ctxt=ctxt,
+                loc=s.loc
+            )
+        if id in ctxt.pctxt.static_parameters:
+            raise MemoError(
+                "Name conflict",
+                hint=f"The name {id} is already being used as a parameter to the model.",
                 user=True,
                 ctxt=ctxt,
                 loc=s.loc
